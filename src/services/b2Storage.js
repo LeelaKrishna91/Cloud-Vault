@@ -9,14 +9,23 @@ import { determineCategory, generateShareCode } from "./storage";
 
 const B2_CONFIG_KEY = "cloudvault_b2_config";
 
+const DEFAULT_B2_CONFIG = {
+  endpoint: "s3.us-east-005.backblazeb2.com",
+  region: "us-east-005",
+  bucketName: "cloud-vault-aiml",
+  accessKeyId: "00531c6a49375c90000000001",
+  secretAccessKey: "K005kqVi3ivabTIWJdULwLw4n45WLXE",
+  enabled: true,
+};
+
 export function getB2Config() {
   try {
     const saved = localStorage.getItem(B2_CONFIG_KEY);
-    if (!saved) return null;
+    if (!saved) return DEFAULT_B2_CONFIG;
     return JSON.parse(saved);
   } catch (err) {
     console.error("Failed to parse B2 config:", err);
-    return null;
+    return DEFAULT_B2_CONFIG;
   }
 }
 
