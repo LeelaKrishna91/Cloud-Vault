@@ -9,32 +9,23 @@ import { determineCategory, generateShareCode } from "./storage";
 
 const B2_CONFIG_KEY = "cloudvault_b2_config";
 
+const DEFAULT_CONFIG = {
+  endpoint: (import.meta.env.VITE_B2_ENDPOINT || "s3.us-east-005.backblazeb2.com").replace(/^https?:\/\//, ''),
+  region: import.meta.env.VITE_B2_REGION || "us-east-005",
+  bucketName: import.meta.env.VITE_B2_BUCKET_NAME || "cloud-vault-aiml",
+  accessKeyId: import.meta.env.VITE_B2_KEY_ID || "00531c6a49375c90000000001",
+  secretAccessKey: import.meta.env.VITE_B2_APPLICATION_KEY || "K005kqVi3ivabTIWJdULwLw4n45WLXE",
+  enabled: true,
+};
+
 export function getB2Config() {
   try {
     const saved = localStorage.getItem(B2_CONFIG_KEY);
     if (saved) return JSON.parse(saved);
-
-    // Read environment variables if available (e.g. from .env or Vercel settings)
-    const envEndpoint = import.meta.env.VITE_B2_ENDPOINT || '';
-    const envBucketName = import.meta.env.VITE_B2_BUCKET_NAME || '';
-    const envKeyId = import.meta.env.VITE_B2_KEY_ID || '';
-    const envAppKey = import.meta.env.VITE_B2_APPLICATION_KEY || '';
-
-    if (envEndpoint && envBucketName && envKeyId && envAppKey) {
-      return {
-        endpoint: envEndpoint.trim().replace(/^https?:\/\//, ''),
-        region: import.meta.env.VITE_B2_REGION || 'us-west-004',
-        bucketName: envBucketName.trim(),
-        accessKeyId: envKeyId.trim(),
-        secretAccessKey: envAppKey.trim(),
-        enabled: true,
-      };
-    }
-
-    return null;
+    return DEFAULT_CONFIG;
   } catch (err) {
     console.error("Failed to parse B2 config:", err);
-    return null;
+    return DEFAULT_CONFIG;
   }
 }
 

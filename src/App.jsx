@@ -6,7 +6,6 @@ import FileBrowser from './components/FileBrowser';
 import FilePreviewModal from './components/FilePreviewModal';
 import ShareModal from './components/ShareModal';
 import StorageStatsModal from './components/StorageStatsModal';
-import CloudSyncModal from './components/CloudSyncModal';
 import { 
   getAllFilesFromDB, 
   saveFileToDB, 
@@ -36,28 +35,21 @@ export default function App() {
   const [previewFile, setPreviewFile] = useState(null);
   const [shareFile, setShareFile] = useState(null);
   const [showStats, setShowStats] = useState(false);
-  const [showCloudSync, setShowCloudSync] = useState(false);
   const [isAppLoading, setIsAppLoading] = useState(true);
-  const [isB2Active, setIsB2Active] = useState(isB2Configured());
 
   const loadFiles = async () => {
     setIsAppLoading(true);
-    const b2Configured = isB2Configured();
-    setIsB2Active(b2Configured);
-
     try {
-      if (b2Configured) {
-        // Load files from Backblaze B2 cloud storage
+      if (isB2Configured()) {
+        // Load files automatically from Backblaze B2 cloud storage
         const b2Files = await getAllFilesFromB2();
         setFiles(b2Files);
       } else {
-        // Load files from local browser IndexedDB
         const localFiles = await getAllFilesFromDB();
         setFiles(localFiles);
       }
     } catch (err) {
-      console.error('Failed to load files:', err);
-      // Fallback to local storage on error
+      console.error('Failed to load files from cloud storage:', err);
       const localFiles = await getAllFilesFromDB();
       setFiles(localFiles);
     } finally {
@@ -87,7 +79,6 @@ export default function App() {
     if (!file.isB2) {
       await toggleFavoriteFile(file.id, file.isFavorite);
     } else {
-      // Toggle favorite locally in state for B2 files
       setFiles(prev => prev.map(f => f.id === file.id ? { ...f, isFavorite: !f.isFavorite } : f));
     }
   };
@@ -170,8 +161,6 @@ export default function App() {
         totalBytesUsed={totalBytesUsed}
         quotaBytes={quotaBytes}
         fileCount={activeFiles.length}
-        isB2Connected={isB2Active}
-        onOpenCloudSync={() => setShowCloudSync(true)}
       />
 
       <div className="main-layout">
@@ -182,8 +171,6 @@ export default function App() {
           totalBytesUsed={totalBytesUsed}
           quotaBytes={quotaBytes}
           onOpenStats={() => setShowStats(true)}
-          isB2Connected={isB2Active}
-          onOpenCloudSync={() => setShowCloudSync(true)}
         />
 
         <main className="content-area">
@@ -226,13 +213,6 @@ export default function App() {
           quotaBytes={quotaBytes}
           onUpdateQuota={handleUpdateQuota}
           onClose={() => setShowStats(false)}
-        />
-      )}
-
-      {showCloudSync && (
-        <CloudSyncModal 
-          onClose={() => setShowCloudSync(false)}
-          onSyncStateChanged={loadFiles}
         />
       )}
     </div>
