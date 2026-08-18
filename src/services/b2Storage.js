@@ -131,8 +131,9 @@ export async function uploadFileToB2(file, options = {}) {
 
   await client.send(command);
 
-  // Construct direct download/view URL
-  const publicUrl = `https://${config.bucketName}.${config.endpoint}/${fileKey}`;
+  // Construct direct download/view URLs (both path-style and virtual-host style)
+  const pathStyleUrl = `https://${config.endpoint}/${config.bucketName}/${fileKey}`;
+  const vhostStyleUrl = `https://${config.bucketName}.${config.endpoint}/${fileKey}`;
 
   const fileRecord = {
     id: fileId,
@@ -141,7 +142,8 @@ export async function uploadFileToB2(file, options = {}) {
     size: file.size,
     type: file.type || 'application/octet-stream',
     category,
-    url: publicUrl,
+    url: pathStyleUrl,
+    fallbackUrl: vhostStyleUrl,
     blob: file, // Keep in memory for instant local previews
     uploadDate: new Date().toISOString(),
     lastAccessed: new Date().toISOString(),
@@ -179,9 +181,16 @@ export async function getAllFilesFromB2() {
       const keyFileName = parts[parts.length - 1] || obj.Key;
       const firstUnderscore = keyFileName.indexOf('_');
       const fileId = firstUnderscore !== -1 ? keyFileName.substring(0, firstUnderscore) : obj.Key;
-      const originalName = firstUnderscore !== -1 ? keyFileName.substring(firstUnderscore + 1) : keyFileName;
+      let originalName = firstUnderscore !== -1 ? keyFileName.substring(firstUnderscore + 1) : keyFileName;
 
-      const publicUrl = `https://${config.bucketName}.${config.endpoint}/${obj.Key}`;
+      try {
+        originalName = decodeURIComponent(originalName);
+      } catch (e) {
+        // Keep clean name if decode fails
+      }
+
+      const pathStyleUrl = `https://${config.endpoint}/${config.bucketName}/${obj.Key}`;
+      const vhostStyleUrl = `https://${config.bucketName}.${config.endpoint}/${obj.Key}`;
       const category = determineCategory('', originalName);
 
       return {
@@ -191,7 +200,8 @@ export async function getAllFilesFromB2() {
         size: obj.Size || 0,
         type: 'application/octet-stream',
         category,
-        url: publicUrl,
+        url: pathStyleUrl,
+        fallbackUrl: vhostStyleUrl,
         uploadDate: obj.LastModified ? new Date(obj.LastModified).toISOString() : new Date().toISOString(),
         lastAccessed: new Date().toISOString(),
         isFavorite: false,

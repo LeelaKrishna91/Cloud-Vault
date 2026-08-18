@@ -80,9 +80,15 @@ export default function App() {
       return;
     }
 
-    if (isB2Configured()) {
-      await uploadFileToB2(fileBlob);
-    } else {
+    try {
+      if (isB2Configured()) {
+        await uploadFileToB2(fileBlob);
+      } else {
+        await saveFileToDB(fileBlob);
+      }
+    } catch (err) {
+      console.error('Cloud Upload error:', err);
+      alert(`Cloud Upload Error: ${err.message || 'Failed to upload file to cloud'}.\n\nPlease check that CORS rules are enabled on your Backblaze B2 bucket (cloud-vault-aiml).`);
       await saveFileToDB(fileBlob);
     }
     await loadFiles();
