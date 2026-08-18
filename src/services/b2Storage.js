@@ -55,9 +55,10 @@ function createS3Client(config = getB2Config()) {
     throw new Error("Backblaze B2 credentials are not fully configured.");
   }
 
-  const endpointUrl = config.endpoint.startsWith("http")
-    ? config.endpoint
-    : `https://${config.endpoint}`;
+  // Clean endpoint string (remove trailing slashes, bucket names if mistakenly entered)
+  let cleanEndpoint = config.endpoint.trim().replace(/^https?:\/\//, '').split('/')[0];
+
+  const endpointUrl = `https://${cleanEndpoint}`;
 
   return new S3Client({
     endpoint: endpointUrl,
@@ -66,6 +67,7 @@ function createS3Client(config = getB2Config()) {
       accessKeyId: config.accessKeyId,
       secretAccessKey: config.secretAccessKey,
     },
+    forcePathStyle: true, // Enables path-style S3 URLs required for Backblaze B2 CORS stability
   });
 }
 
@@ -80,15 +82,17 @@ export async function testB2Connection(config) {
     return { success: true };
   } catch (err) {
     console.error("B2 Connection test failed:", err);
-    let message = err.message || "Failed to connect to Backblaze B2.";
-    if (err.name === "TypeError" || message.includes("Failed to fetch") || message.includes("NetworkError")) {
-      message = "Network / CORS Error. Ensure you have set CORS rules on your Backblaze bucket to allow requests from your browser domain.";
-    } else if (err.name === "NoSuchBucket") {
-      message = `Bucket "${config.bucketName}" does not exist in Backblaze B2. Check the bucket name.`;
-    } else if (err.name === "InvalidAccessKeyId" || message.includes("403") || message.includes("AccessDenied")) {
-      message = "Access Denied. Please double-check your keyID and applicationKey.";
+    const rawMsg = err.message || err.toString() || "";
+
+    if (err.name === "NoSuchBucket" || rawMsg.includes("NoSuchBucket")) {
+      throw new Error(`Bucket "${config.bucketName}" not found. Verify your Bucket Name and Endpoint region.`);
+    } else if (err.name === "InvalidAccessKeyId" || rawMsg.includes("403") || rawMsg.includes("AccessDenied") || rawMsg.includes("Unauthorized")) {
+      throw new Error(`Access Denied (403). Verify your Application Key ID and Application Key.`);
+    } else if (err.name === "TypeError" || rawMsg.includes("Failed to fetch") || rawMsg.includes("NetworkError")) {
+      throw new Error(`Network / CORS Error (${rawMsg}). Ensure Endpoint is correct (e.g. s3.us-west-004.backblazeb2.com) and CORS allows http://localhost:5173.`);
+    } else {
+      throw new Error(`Connection Error: ${rawMsg}`);
     }
-    throw new Error(message);
   }
 }
 
