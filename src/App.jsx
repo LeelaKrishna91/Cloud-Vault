@@ -20,10 +20,10 @@ export default function App() {
   const [activeCategory, setActiveCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   
-  // Storage Quota state (default: 50 GB = 53,687,091,200 bytes, editable by user)
+  // Storage Quota state (default: 100 GB = 107,374,182,400 bytes, editable by user)
   const [quotaBytes, setQuotaBytes] = useState(() => {
     const saved = localStorage.getItem('cloudvault_quota_bytes');
-    return saved ? parseInt(saved, 10) : 50 * 1024 * 1024 * 1024;
+    return saved ? parseInt(saved, 10) : 100 * 1024 * 1024 * 1024;
   });
 
   const [previewFile, setPreviewFile] = useState(null);

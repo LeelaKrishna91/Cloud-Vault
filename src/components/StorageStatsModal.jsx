@@ -31,11 +31,10 @@ export default function StorageStatsModal({ files, onClose, totalBytesUsed, quot
   const quotaOptions = [
     { label: '5 GB', bytes: 5 * 1024 * 1024 * 1024 },
     { label: '15 GB', bytes: 15 * 1024 * 1024 * 1024 },
+    { label: '25 GB', bytes: 25 * 1024 * 1024 * 1024 },
     { label: '50 GB', bytes: 50 * 1024 * 1024 * 1024 },
+    { label: '75 GB', bytes: 75 * 1024 * 1024 * 1024 },
     { label: '100 GB', bytes: 100 * 1024 * 1024 * 1024 },
-    { label: '500 GB', bytes: 500 * 1024 * 1024 * 1024 },
-    { label: '1 TB', bytes: 1024 * 1024 * 1024 * 1024 },
-    { label: '10 TB', bytes: 10 * 1024 * 1024 * 1024 * 1024 },
   ];
 
   return (
