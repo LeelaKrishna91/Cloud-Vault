@@ -19,10 +19,10 @@ export default function Sidebar({
   setActiveCategory, 
   categoryCounts,
   totalBytesUsed,
+  quotaBytes,
   onOpenStats
 }) {
-  const maxQuota = 5 * 1024 * 1024 * 1024; // 5 GB
-  const percentage = Math.min(100, (totalBytesUsed / maxQuota) * 100);
+  const percentage = Math.min(100, Math.round((totalBytesUsed / (quotaBytes || 1)) * 100));
 
   const mainNav = [
     { id: 'all', label: 'All Files', icon: Folder, count: categoryCounts.all || 0 },
@@ -103,7 +103,7 @@ export default function Sidebar({
               style={{ background: 'none', border: 'none', color: '#00f2fe', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.75rem', fontWeight: 600 }}
               onClick={onOpenStats}
             >
-              <PieChart size={14} /> Stats
+              <PieChart size={14} /> Manage
             </button>
           </div>
           <div style={{ height: '6px', width: '100%', background: 'rgba(255, 255, 255, 0.1)', borderRadius: '3px', overflow: 'hidden', marginBottom: '0.6rem' }}>
@@ -119,7 +119,7 @@ export default function Sidebar({
           </div>
           <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', display: 'flex', justifyContent: 'space-between' }}>
             <span>{formatBytes(totalBytesUsed)}</span>
-            <span>5.0 GB</span>
+            <span>{formatBytes(quotaBytes)}</span>
           </div>
         </div>
 

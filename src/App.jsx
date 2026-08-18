@@ -20,6 +20,12 @@ export default function App() {
   const [activeCategory, setActiveCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   
+  // Storage Quota state (default: 50 GB = 53,687,091,200 bytes, editable by user)
+  const [quotaBytes, setQuotaBytes] = useState(() => {
+    const saved = localStorage.getItem('cloudvault_quota_bytes');
+    return saved ? parseInt(saved, 10) : 50 * 1024 * 1024 * 1024;
+  });
+
   const [previewFile, setPreviewFile] = useState(null);
   const [shareFile, setShareFile] = useState(null);
   const [showStats, setShowStats] = useState(false);
@@ -39,6 +45,11 @@ export default function App() {
   useEffect(() => {
     loadFiles();
   }, []);
+
+  const handleUpdateQuota = (newBytes) => {
+    setQuotaBytes(newBytes);
+    localStorage.setItem('cloudvault_quota_bytes', newBytes.toString());
+  };
 
   const handleUploadSuccess = async (fileBlob) => {
     await saveFileToDB(fileBlob);
@@ -71,7 +82,6 @@ export default function App() {
 
   // Filter files based on Category & Search Query
   const filteredFiles = files.filter(file => {
-    // 1. Search Query Filter
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       const matchName = file.name.toLowerCase().includes(q);
@@ -80,14 +90,12 @@ export default function App() {
       if (!matchName && !matchTag && !matchCat) return false;
     }
 
-    // 2. Trash Filter
     if (activeCategory === 'trash') {
       return file.isTrash;
     } else {
       if (file.isTrash) return false;
     }
 
-    // 3. Category Filter
     if (activeCategory === 'all') return true;
     if (activeCategory === 'favorites') return file.isFavorite;
     if (activeCategory === 'video') return file.category === 'videos';
@@ -122,6 +130,7 @@ export default function App() {
         setSearchQuery={setSearchQuery}
         onTriggerUpload={scrollToUpload}
         totalBytesUsed={totalBytesUsed}
+        quotaBytes={quotaBytes}
         fileCount={activeFiles.length}
       />
 
@@ -131,6 +140,7 @@ export default function App() {
           setActiveCategory={setActiveCategory}
           categoryCounts={categoryCounts}
           totalBytesUsed={totalBytesUsed}
+          quotaBytes={quotaBytes}
           onOpenStats={() => setShowStats(true)}
         />
 
@@ -171,6 +181,8 @@ export default function App() {
         <StorageStatsModal 
           files={files}
           totalBytesUsed={totalBytesUsed}
+          quotaBytes={quotaBytes}
+          onUpdateQuota={handleUpdateQuota}
           onClose={() => setShowStats(false)}
         />
       )}

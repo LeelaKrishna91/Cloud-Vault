@@ -1,5 +1,5 @@
 import React from 'react';
-import { CloudUpload, Search, HardDrive, Sparkles } from 'lucide-react';
+import { CloudUpload, Search, HardDrive } from 'lucide-react';
 import { formatBytes } from '../services/storage';
 
 export default function Navbar({ 
@@ -7,11 +7,9 @@ export default function Navbar({
   setSearchQuery, 
   onTriggerUpload, 
   totalBytesUsed,
+  quotaBytes,
   fileCount
 }) {
-  const maxStorage = 5 * 1024 * 1024 * 1024; // 5 GB simulated cloud quota
-  const usagePercentage = Math.min(100, Math.round((totalBytesUsed / maxStorage) * 100));
-
   return (
     <nav className="navbar">
       <a href="#" className="brand">
@@ -42,7 +40,7 @@ export default function Navbar({
           <HardDrive size={18} style={{ color: '#00f2fe' }} />
           <div style={{ fontSize: '0.8rem' }}>
             <div style={{ fontWeight: 600, color: 'var(--text-main)' }}>
-              {formatBytes(totalBytesUsed)} <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>used</span>
+              {formatBytes(totalBytesUsed)} <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>of {formatBytes(quotaBytes)}</span>
             </div>
             <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>
               {fileCount} {fileCount === 1 ? 'file' : 'files'} online
