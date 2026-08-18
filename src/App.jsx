@@ -12,7 +12,8 @@ import {
   deleteFileFromDB, 
   restoreFileFromDB, 
   toggleFavoriteFile,
-  clearTrashInDB
+  clearTrashInDB,
+  formatBytes
 } from './services/storage';
 import {
   isB2Configured,
@@ -26,10 +27,13 @@ export default function App() {
   const [activeCategory, setActiveCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   
-  // Storage Quota state (default: 10 GB = 10,737,418,240 bytes, editable by user)
+  const MAX_QUOTA_BYTES = 10 * 1024 * 1024 * 1024; // 10 GB Maximum Storage Cap
+
+  // Storage Quota state (default & maximum: 10 GB = 10,737,418,240 bytes)
   const [quotaBytes, setQuotaBytes] = useState(() => {
     const saved = localStorage.getItem('cloudvault_quota_bytes');
-    return saved ? parseInt(saved, 10) : 10 * 1024 * 1024 * 1024;
+    const parsed = saved ? parseInt(saved, 10) : MAX_QUOTA_BYTES;
+    return Math.min(parsed, MAX_QUOTA_BYTES);
   });
 
   const [previewFile, setPreviewFile] = useState(null);
@@ -62,11 +66,20 @@ export default function App() {
   }, []);
 
   const handleUpdateQuota = (newBytes) => {
-    setQuotaBytes(newBytes);
-    localStorage.setItem('cloudvault_quota_bytes', newBytes.toString());
+    const cappedBytes = Math.min(newBytes, MAX_QUOTA_BYTES);
+    setQuotaBytes(cappedBytes);
+    localStorage.setItem('cloudvault_quota_bytes', cappedBytes.toString());
   };
 
   const handleUploadSuccess = async (fileBlob) => {
+    const activeFiles = files.filter(f => !f.isTrash);
+    const currentBytes = activeFiles.reduce((sum, f) => sum + (f.size || 0), 0);
+
+    if (currentBytes + fileBlob.size > quotaBytes || currentBytes + fileBlob.size > MAX_QUOTA_BYTES) {
+      alert(`Upload Failed: Storage limit reached. Maximum storage quota is 10 GB (${formatBytes(MAX_QUOTA_BYTES)}).`);
+      return;
+    }
+
     if (isB2Configured()) {
       await uploadFileToB2(fileBlob);
     } else {
