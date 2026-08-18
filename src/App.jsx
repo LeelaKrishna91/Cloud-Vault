@@ -26,10 +26,10 @@ export default function App() {
   const [activeCategory, setActiveCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   
-  // Storage Quota state (default: 100 GB = 107,374,182,400 bytes, editable by user)
+  // Storage Quota state (default: 10 GB = 10,737,418,240 bytes, editable by user)
   const [quotaBytes, setQuotaBytes] = useState(() => {
     const saved = localStorage.getItem('cloudvault_quota_bytes');
-    return saved ? parseInt(saved, 10) : 100 * 1024 * 1024 * 1024;
+    return saved ? parseInt(saved, 10) : 10 * 1024 * 1024 * 1024;
   });
 
   const [previewFile, setPreviewFile] = useState(null);
@@ -174,6 +174,30 @@ export default function App() {
         />
 
         <main className="content-area">
+          {/* Mobile Category Navigation Bar */}
+          <div className="mobile-category-bar">
+            {[
+              { id: 'all', label: 'All', count: categoryCounts.all },
+              { id: 'favorites', label: 'Starred', count: categoryCounts.favorites },
+              { id: 'images', label: 'Images', count: categoryCounts.images },
+              { id: 'documents', label: 'Docs', count: categoryCounts.documents },
+              { id: 'video', label: 'Videos', count: categoryCounts.video },
+              { id: 'audio', label: 'Audio', count: categoryCounts.audio },
+              { id: 'code', label: 'Code', count: categoryCounts.code },
+              { id: 'archives', label: 'Zip', count: categoryCounts.archives },
+              { id: 'trash', label: 'Trash', count: categoryCounts.trash },
+            ].map(cat => (
+              <button
+                key={cat.id}
+                className={`mobile-cat-pill ${activeCategory === cat.id ? 'active' : ''}`}
+                onClick={() => setActiveCategory(cat.id)}
+              >
+                <span>{cat.label}</span>
+                <span className="pill-count">{cat.count || 0}</span>
+              </button>
+            ))}
+          </div>
+
           {activeCategory !== 'trash' && (
             <FileUploadZone onUploadSuccess={handleUploadSuccess} />
           )}
