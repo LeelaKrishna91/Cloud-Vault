@@ -116,10 +116,14 @@ export async function uploadFileToB2(file, options = {}) {
   const category = determineCategory(file.type, file.name);
   const shareCode = generateShareCode();
 
+  // Convert File to Uint8Array to prevent 'e.getReader is not a function' in AWS SDK browser environments
+  const arrayBuffer = await file.arrayBuffer();
+  const fileBytes = new Uint8Array(arrayBuffer);
+
   const command = new PutObjectCommand({
     Bucket: config.bucketName,
     Key: fileKey,
-    Body: file,
+    Body: fileBytes,
     ContentType: file.type || 'application/octet-stream',
     Metadata: {
       originalName: encodeURIComponent(file.name),
@@ -129,7 +133,16 @@ export async function uploadFileToB2(file, options = {}) {
     },
   });
 
-  await client.send(command);
+  try {
+    await client.send(command);
+  } catch (err) {
+    console.error("B2 PutObject Error:", err);
+    let msg = err.message || err.toString();
+    if (err.name === "TypeError" || msg.includes("Failed to fetch") || msg.includes("NetworkError")) {
+      msg = `CORS Block. Ensure CORS rules on bucket "${config.bucketName}" allow origin '*' and operations S3 Read/Write.`;
+    }
+    throw new Error(msg);
+  }
 
   // Construct direct download/view URLs (both path-style and virtual-host style)
   const pathStyleUrl = `https://${config.endpoint}/${config.bucketName}/${fileKey}`;
