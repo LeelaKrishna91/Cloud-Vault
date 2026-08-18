@@ -59,24 +59,22 @@ export function isB2Configured() {
   );
 }
 
-function createS3Client(config = getB2Config()) {
+function createS3Client(config = getB2Config(), forcePathStyle = true) {
   if (!config || !config.endpoint || !config.accessKeyId || !config.secretAccessKey) {
     throw new Error("Backblaze B2 credentials are not fully configured.");
   }
 
-  // Clean endpoint string (remove trailing slashes, bucket names if mistakenly entered)
   let cleanEndpoint = config.endpoint.trim().replace(/^https?:\/\//, '').split('/')[0];
-
   const endpointUrl = `https://${cleanEndpoint}`;
 
   return new S3Client({
     endpoint: endpointUrl,
-    region: config.region || "us-west-004",
+    region: config.region || "us-east-005",
     credentials: {
       accessKeyId: config.accessKeyId,
       secretAccessKey: config.secretAccessKey,
     },
-    forcePathStyle: true, // Enables path-style S3 URLs required for Backblaze B2 CORS stability
+    forcePathStyle,
   });
 }
 
@@ -98,7 +96,7 @@ export async function testB2Connection(config) {
     } else if (err.name === "InvalidAccessKeyId" || rawMsg.includes("403") || rawMsg.includes("AccessDenied") || rawMsg.includes("Unauthorized")) {
       throw new Error(`Access Denied (403). Verify your Application Key ID and Application Key.`);
     } else if (err.name === "TypeError" || rawMsg.includes("Failed to fetch") || rawMsg.includes("NetworkError")) {
-      throw new Error(`Network / CORS Error (${rawMsg}). Ensure Endpoint is correct (e.g. s3.us-west-004.backblazeb2.com) and CORS allows http://localhost:5173.`);
+      throw new Error(`CORS Propagation in progress or block. Ensure CORS rules on bucket "${config.bucketName}" allow origin '*'.`);
     } else {
       throw new Error(`Connection Error: ${rawMsg}`);
     }
@@ -109,7 +107,7 @@ export async function uploadFileToB2(file, options = {}) {
   const config = getB2Config();
   if (!config) throw new Error("Backblaze B2 is not configured.");
 
-  const client = createS3Client(config);
+  const client = createS3Client(config, true);
   const fileId = 'b2_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
   const cleanName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
   const fileKey = `cloudvault/${fileId}_${cleanName}`;
@@ -136,12 +134,18 @@ export async function uploadFileToB2(file, options = {}) {
   try {
     await client.send(command);
   } catch (err) {
-    console.error("B2 PutObject Error:", err);
-    let msg = err.message || err.toString();
-    if (err.name === "TypeError" || msg.includes("Failed to fetch") || msg.includes("NetworkError")) {
-      msg = `CORS Block. Ensure CORS rules on bucket "${config.bucketName}" allow origin '*' and operations S3 Read/Write.`;
+    console.warn("Path-style S3 upload failed, trying virtual-host style...", err);
+    try {
+      const altClient = createS3Client(config, false);
+      await altClient.send(command);
+    } catch (altErr) {
+      console.error("B2 PutObject Error:", altErr);
+      let msg = altErr.message || altErr.toString();
+      if (altErr.name === "TypeError" || msg.includes("Failed to fetch") || msg.includes("NetworkError")) {
+        msg = `CORS rules update in progress. Please wait 15 seconds and try again!`;
+      }
+      throw new Error(msg);
     }
-    throw new Error(msg);
   }
 
   // Construct direct download/view URLs (both path-style and virtual-host style)
