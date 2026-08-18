@@ -10,7 +10,8 @@ import {
   Star, 
   Trash2, 
   PieChart,
-  Globe
+  Globe,
+  Cloud
 } from 'lucide-react';
 import { formatBytes } from '../services/storage';
 
@@ -20,7 +21,9 @@ export default function Sidebar({
   categoryCounts,
   totalBytesUsed,
   quotaBytes,
-  onOpenStats
+  onOpenStats,
+  isB2Connected,
+  onOpenCloudSync
 }) {
   const percentage = Math.min(100, Math.round((totalBytesUsed / (quotaBytes || 1)) * 100));
 
@@ -81,7 +84,21 @@ export default function Sidebar({
       </div>
 
       <div style={{ marginTop: 'auto' }}>
-        <div className="nav-group-title">System</div>
+        <div className="nav-group-title">System & Cloud</div>
+        <button
+          className="sidebar-link"
+          onClick={onOpenCloudSync}
+          style={{ cursor: 'pointer' }}
+        >
+          <div className="sidebar-item-left">
+            <Cloud size={18} style={{ color: isB2Connected ? '#10b981' : '#00f2fe' }} />
+            <span>Backblaze B2 Sync</span>
+          </div>
+          <span className="count-pill" style={{ background: isB2Connected ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255, 255, 255, 0.1)', color: isB2Connected ? '#34d399' : 'var(--text-muted)' }}>
+            {isB2Connected ? 'Active' : 'Setup'}
+          </span>
+        </button>
+
         <button
           className={`sidebar-link ${activeCategory === 'trash' ? 'active' : ''}`}
           onClick={() => setActiveCategory('trash')}
@@ -130,3 +147,4 @@ export default function Sidebar({
     </aside>
   );
 }
+

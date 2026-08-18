@@ -1,5 +1,5 @@
 import React from 'react';
-import { CloudUpload, Search, HardDrive } from 'lucide-react';
+import { CloudUpload, Search, HardDrive, Cloud, RefreshCw } from 'lucide-react';
 import { formatBytes } from '../services/storage';
 
 export default function Navbar({ 
@@ -8,7 +8,9 @@ export default function Navbar({
   onTriggerUpload, 
   totalBytesUsed,
   quotaBytes,
-  fileCount
+  fileCount,
+  isB2Connected,
+  onOpenCloudSync
 }) {
   return (
     <nav className="navbar">
@@ -35,7 +37,37 @@ export default function Navbar({
         />
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+        {/* Backblaze B2 Cloud Sync Indicator Button */}
+        <button 
+          onClick={onOpenCloudSync}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            background: isB2Connected ? 'rgba(16, 185, 129, 0.1)' : 'rgba(255, 255, 255, 0.04)',
+            border: `1px solid ${isB2Connected ? 'rgba(16, 185, 129, 0.4)' : 'var(--border-color)'}`,
+            padding: '0.45rem 0.85rem',
+            borderRadius: 'var(--radius-sm)',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease',
+            color: 'var(--text-main)',
+            fontSize: '0.8rem',
+            fontWeight: 600,
+          }}
+          title={isB2Connected ? "Backblaze B2 Connected (Cross-device sync enabled)" : "Click to connect Backblaze B2 Cloud Storage"}
+        >
+          <Cloud size={16} style={{ color: isB2Connected ? '#10b981' : '#00f2fe' }} />
+          <span>{isB2Connected ? 'Cloud Sync Active' : 'Connect Cloud (B2)'}</span>
+          <div style={{
+            width: '8px',
+            height: '8px',
+            borderRadius: '50%',
+            background: isB2Connected ? '#10b981' : '#94a3b8',
+            boxShadow: isB2Connected ? '0 0 8px #10b981' : 'none'
+          }} />
+        </button>
+
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', background: 'rgba(255, 255, 255, 0.03)', padding: '0.4rem 0.8rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-color)' }}>
           <HardDrive size={18} style={{ color: '#00f2fe' }} />
           <div style={{ fontSize: '0.8rem' }}>
@@ -43,7 +75,7 @@ export default function Navbar({
               {formatBytes(totalBytesUsed)} <span style={{ color: 'var(--text-dim)', fontWeight: 400 }}>of {formatBytes(quotaBytes)}</span>
             </div>
             <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>
-              {fileCount} {fileCount === 1 ? 'file' : 'files'} online
+              {fileCount} {fileCount === 1 ? 'file' : 'files'} {isB2Connected ? 'synced' : 'online'}
             </div>
           </div>
         </div>
@@ -56,3 +88,4 @@ export default function Navbar({
     </nav>
   );
 }
+
