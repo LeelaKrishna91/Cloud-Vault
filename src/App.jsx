@@ -6,6 +6,7 @@ import FileBrowser from './components/FileBrowser';
 import FilePreviewModal from './components/FilePreviewModal';
 import ShareModal from './components/ShareModal';
 import StorageStatsModal from './components/StorageStatsModal';
+import AdminPortal from './components/AdminPortal';
 import { 
   getAllFilesFromDB, 
   saveFileToDB, 
@@ -23,6 +24,7 @@ import {
 } from './services/b2Storage';
 
 export default function App() {
+  const [currentView, setCurrentView] = useState('files'); // 'files' or 'admin'
   const [files, setFiles] = useState([]);
   const [activeCategory, setActiveCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -88,7 +90,7 @@ export default function App() {
       }
     } catch (err) {
       console.error('Cloud Upload error:', err);
-      alert(`Cloud Upload Error: ${err.message || 'Failed to upload file to cloud'}.\n\nPlease check that CORS rules are enabled on your Backblaze B2 bucket (cloud-vault-aiml).`);
+      alert(`Cloud Upload Error: ${err.message || 'Failed to upload file to cloud'}`);
       await saveFileToDB(fileBlob);
     }
     await loadFiles();
@@ -168,7 +170,12 @@ export default function App() {
   };
 
   const scrollToUpload = () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (currentView !== 'files') {
+      setCurrentView('files');
+      setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 100);
+    } else {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   };
 
   return (
@@ -180,57 +187,73 @@ export default function App() {
         totalBytesUsed={totalBytesUsed}
         quotaBytes={quotaBytes}
         fileCount={activeFiles.length}
+        currentView={currentView}
+        setCurrentView={setCurrentView}
       />
 
       <div className="main-layout">
         <Sidebar 
           activeCategory={activeCategory}
-          setActiveCategory={setActiveCategory}
+          setActiveCategory={(cat) => {
+            setActiveCategory(cat);
+            if (currentView !== 'files') setCurrentView('files');
+          }}
           categoryCounts={categoryCounts}
           totalBytesUsed={totalBytesUsed}
           quotaBytes={quotaBytes}
           onOpenStats={() => setShowStats(true)}
+          currentView={currentView}
+          setCurrentView={setCurrentView}
         />
 
         <main className="content-area">
-          {/* Mobile Category Navigation Bar */}
-          <div className="mobile-category-bar">
-            {[
-              { id: 'all', label: 'All', count: categoryCounts.all },
-              { id: 'favorites', label: 'Starred', count: categoryCounts.favorites },
-              { id: 'images', label: 'Images', count: categoryCounts.images },
-              { id: 'documents', label: 'Docs', count: categoryCounts.documents },
-              { id: 'video', label: 'Videos', count: categoryCounts.video },
-              { id: 'audio', label: 'Audio', count: categoryCounts.audio },
-              { id: 'code', label: 'Code', count: categoryCounts.code },
-              { id: 'archives', label: 'Zip', count: categoryCounts.archives },
-              { id: 'trash', label: 'Trash', count: categoryCounts.trash },
-            ].map(cat => (
-              <button
-                key={cat.id}
-                className={`mobile-cat-pill ${activeCategory === cat.id ? 'active' : ''}`}
-                onClick={() => setActiveCategory(cat.id)}
-              >
-                <span>{cat.label}</span>
-                <span className="pill-count">{cat.count || 0}</span>
-              </button>
-            ))}
-          </div>
+          {currentView === 'admin' ? (
+            <AdminPortal 
+              quotaBytes={quotaBytes} 
+              onUpdateQuota={handleUpdateQuota} 
+            />
+          ) : (
+            <>
+              {/* Mobile Category Navigation Bar */}
+              <div className="mobile-category-bar">
+                {[
+                  { id: 'all', label: 'All', count: categoryCounts.all },
+                  { id: 'favorites', label: 'Starred', count: categoryCounts.favorites },
+                  { id: 'images', label: 'Images', count: categoryCounts.images },
+                  { id: 'documents', label: 'Docs', count: categoryCounts.documents },
+                  { id: 'video', label: 'Videos', count: categoryCounts.video },
+                  { id: 'audio', label: 'Audio', count: categoryCounts.audio },
+                  { id: 'code', label: 'Code', count: categoryCounts.code },
+                  { id: 'archives', label: 'Zip', count: categoryCounts.archives },
+                  { id: 'trash', label: 'Trash', count: categoryCounts.trash },
+                ].map(cat => (
+                  <button
+                    key={cat.id}
+                    className={`mobile-cat-pill ${activeCategory === cat.id ? 'active' : ''}`}
+                    onClick={() => setActiveCategory(cat.id)}
+                  >
+                    <span>{cat.label}</span>
+                    <span className="pill-count">{cat.count || 0}</span>
+                  </button>
+                ))}
+              </div>
 
-          {activeCategory !== 'trash' && (
-            <FileUploadZone onUploadSuccess={handleUploadSuccess} />
+              {activeCategory !== 'trash' && (
+                <FileUploadZone onUploadSuccess={handleUploadSuccess} />
+              )}
+
+              <FileBrowser 
+                files={filteredFiles}
+                activeCategory={activeCategory}
+                onPreview={(file) => setPreviewFile(file)}
+                onShare={(file) => setShareFile(file)}
+                onToggleFavorite={handleToggleFavorite}
+                onDelete={handleDelete}
+                onRestore={handleRestore}
+                onClearTrash={handleClearTrash}
+              />
+            </>
           )}
-
-          <FileBrowser 
-            files={filteredFiles}
-            activeCategory={activeCategory}
-            onPreview={(file) => setPreviewFile(file)}
-            onShare={(file) => setShareFile(file)}
-            onToggleFavorite={handleToggleFavorite}
-            onDelete={handleDelete}
-            onRestore={handleRestore}
-            onClearTrash={handleClearTrash}
-          />
         </main>
       </div>
 

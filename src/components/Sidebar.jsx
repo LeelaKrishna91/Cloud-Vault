@@ -11,7 +11,8 @@ import {
   Trash2, 
   PieChart,
   Globe,
-  Cloud
+  Cloud,
+  Shield
 } from 'lucide-react';
 import { formatBytes } from '../services/storage';
 
@@ -86,8 +87,21 @@ export default function Sidebar({
       <div style={{ marginTop: 'auto' }}>
         <div className="nav-group-title">System</div>
         <button
-          className={`sidebar-link ${activeCategory === 'trash' ? 'active' : ''}`}
-          onClick={() => setActiveCategory('trash')}
+          className={`sidebar-link ${currentView === 'admin' ? 'active' : ''}`}
+          onClick={() => setCurrentView('admin')}
+        >
+          <div className="sidebar-item-left">
+            <Shield size={18} style={{ color: '#00f2fe' }} />
+            <span>Admin Portal</span>
+          </div>
+        </button>
+
+        <button
+          className={`sidebar-link ${activeCategory === 'trash' && currentView !== 'admin' ? 'active' : ''}`}
+          onClick={() => {
+            setActiveCategory('trash');
+            if (currentView !== 'files') setCurrentView('files');
+          }}
         >
           <div className="sidebar-item-left">
             <Trash2 size={18} style={{ color: 'var(--accent-rose)' }} />

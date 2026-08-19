@@ -11,17 +11,21 @@ const B2_CONFIG_KEY = "cloudvault_b2_config";
 
 const DEFAULT_CONFIG = {
   endpoint: (import.meta.env.VITE_B2_ENDPOINT || "s3.us-east-005.backblazeb2.com").replace(/^https?:\/\//, ''),
+  customDomain: (import.meta.env.VITE_B2_CUSTOM_DOMAIN || "").replace(/^https?:\/\//, '').replace(/\/+$/, ''),
   region: import.meta.env.VITE_B2_REGION || "us-east-005",
-  bucketName: import.meta.env.VITE_B2_BUCKET_NAME || "cloud-vault-aiml",
-  accessKeyId: import.meta.env.VITE_B2_KEY_ID || "00531c6a49375c90000000001",
-  secretAccessKey: import.meta.env.VITE_B2_APPLICATION_KEY || "K005kqVi3ivabTIWJdULwLw4n45WLXE",
+  bucketName: import.meta.env.VITE_B2_BUCKET_NAME || "",
+  accessKeyId: import.meta.env.VITE_B2_KEY_ID || "",
+  secretAccessKey: import.meta.env.VITE_B2_APPLICATION_KEY || "",
   enabled: true,
 };
 
 export function getB2Config() {
   try {
     const saved = localStorage.getItem(B2_CONFIG_KEY);
-    if (saved) return JSON.parse(saved);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      return { ...DEFAULT_CONFIG, ...parsed };
+    }
     return DEFAULT_CONFIG;
   } catch (err) {
     console.error("Failed to parse B2 config:", err);
@@ -32,6 +36,7 @@ export function getB2Config() {
 export function saveB2Config(config) {
   const normalized = {
     endpoint: config.endpoint?.trim().replace(/^https?:\/\//, '') || '',
+    customDomain: config.customDomain?.trim().replace(/^https?:\/\//, '').replace(/\/+$/, '') || '',
     region: config.region?.trim() || '',
     bucketName: config.bucketName?.trim() || '',
     accessKeyId: config.accessKeyId?.trim() || '',
@@ -64,6 +69,11 @@ function createS3Client(config = getB2Config(), forcePathStyle = true) {
     throw new Error("Backblaze B2 credentials are not fully configured.");
   }
 
+  let accessKeyId = config.accessKeyId.trim();
+  if (accessKeyId.length === 12) {
+    throw new Error("Master Application Keys cannot be used with the S3 Compatible API. Please create a new standard Application Key in your Backblaze B2 account.");
+  }
+
   let cleanEndpoint = config.endpoint.trim().replace(/^https?:\/\//, '').split('/')[0];
   const endpointUrl = `https://${cleanEndpoint}`;
 
@@ -71,8 +81,8 @@ function createS3Client(config = getB2Config(), forcePathStyle = true) {
     endpoint: endpointUrl,
     region: config.region || "us-east-005",
     credentials: {
-      accessKeyId: config.accessKeyId,
-      secretAccessKey: config.secretAccessKey,
+      accessKeyId: accessKeyId,
+      secretAccessKey: config.secretAccessKey.trim(),
     },
     forcePathStyle,
   });
@@ -103,6 +113,22 @@ export async function testB2Connection(config) {
   }
 }
 
+async function computeBase64Sha256(uint8Array) {
+  try {
+    const hashBuffer = await crypto.subtle.digest("SHA-256", uint8Array);
+    let binary = "";
+    const bytes = new Uint8Array(hashBuffer);
+    const len = bytes.byteLength;
+    for (let i = 0; i < len; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary);
+  } catch (e) {
+    console.warn("SHA-256 checksum calculation skipped:", e);
+    return null;
+  }
+}
+
 export async function uploadFileToB2(file, options = {}) {
   const config = getB2Config();
   if (!config) throw new Error("Backblaze B2 is not configured.");
@@ -117,8 +143,9 @@ export async function uploadFileToB2(file, options = {}) {
   // Convert File to Uint8Array to prevent 'e.getReader is not a function' in AWS SDK browser environments
   const arrayBuffer = await file.arrayBuffer();
   const fileBytes = new Uint8Array(arrayBuffer);
+  const checksumSha256 = await computeBase64Sha256(fileBytes);
 
-  const command = new PutObjectCommand({
+  const commandParams = {
     Bucket: config.bucketName,
     Key: fileKey,
     Body: fileBytes,
@@ -129,26 +156,32 @@ export async function uploadFileToB2(file, options = {}) {
       shareCode: shareCode,
       uploadedAt: new Date().toISOString(),
     },
-  });
+  };
+
+  if (checksumSha256) {
+    commandParams.ChecksumSHA256 = checksumSha256;
+  }
+
+  const command = new PutObjectCommand(commandParams);
 
   try {
     await client.send(command);
   } catch (err) {
-    console.warn("Path-style S3 upload failed, trying virtual-host style...", err);
+    console.error("B2 PutObject Primary Error:", err);
     try {
       const altClient = createS3Client(config, false);
       await altClient.send(command);
     } catch (altErr) {
-      console.error("B2 PutObject Error:", altErr);
-      let msg = altErr.message || altErr.toString();
-      if (altErr.name === "TypeError" || msg.includes("Failed to fetch") || msg.includes("NetworkError")) {
-        msg = `CORS rules update in progress. Please wait 15 seconds and try again!`;
-      }
-      throw new Error(msg);
+      console.error("B2 PutObject Alt Error:", altErr);
+      const rawErrorMsg = err.message || err.toString() || altErr.message || altErr.toString();
+      const errorName = err.name || altErr.name || "Error";
+      throw new Error(`Cloud Storage Error [${errorName}]: ${rawErrorMsg}`);
     }
   }
 
-  // Construct direct download/view URLs (both path-style and virtual-host style)
+  // Construct direct download/view URLs (custom domain, path-style and virtual-host style)
+  const cleanCustomDomain = config.customDomain ? config.customDomain.trim().replace(/^https?:\/\//, '').replace(/\/+$/, '') : '';
+  const customDomainUrl = cleanCustomDomain ? `https://${cleanCustomDomain}/${fileKey}` : null;
   const pathStyleUrl = `https://${config.endpoint}/${config.bucketName}/${fileKey}`;
   const vhostStyleUrl = `https://${config.bucketName}.${config.endpoint}/${fileKey}`;
 
@@ -159,8 +192,9 @@ export async function uploadFileToB2(file, options = {}) {
     size: file.size,
     type: file.type || 'application/octet-stream',
     category,
-    url: pathStyleUrl,
+    url: customDomainUrl || pathStyleUrl,
     fallbackUrl: vhostStyleUrl,
+    customDomainUrl: customDomainUrl,
     blob: file, // Keep in memory for instant local previews
     uploadDate: new Date().toISOString(),
     lastAccessed: new Date().toISOString(),
@@ -206,6 +240,8 @@ export async function getAllFilesFromB2() {
         // Keep clean name if decode fails
       }
 
+      const cleanCustomDomain = config.customDomain ? config.customDomain.trim().replace(/^https?:\/\//, '').replace(/\/+$/, '') : '';
+      const customDomainUrl = cleanCustomDomain ? `https://${cleanCustomDomain}/${obj.Key}` : null;
       const pathStyleUrl = `https://${config.endpoint}/${config.bucketName}/${obj.Key}`;
       const vhostStyleUrl = `https://${config.bucketName}.${config.endpoint}/${obj.Key}`;
       const category = determineCategory('', originalName);
@@ -217,8 +253,9 @@ export async function getAllFilesFromB2() {
         size: obj.Size || 0,
         type: 'application/octet-stream',
         category,
-        url: pathStyleUrl,
+        url: customDomainUrl || pathStyleUrl,
         fallbackUrl: vhostStyleUrl,
+        customDomainUrl: customDomainUrl,
         uploadDate: obj.LastModified ? new Date(obj.LastModified).toISOString() : new Date().toISOString(),
         lastAccessed: new Date().toISOString(),
         isFavorite: false,

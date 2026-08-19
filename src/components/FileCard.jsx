@@ -56,15 +56,21 @@ export default function FileCard({
   const Icon = getCategoryIcon(file.category);
 
   const handleDownload = () => {
-    if (!file.blob) return;
-    const url = URL.createObjectURL(file.blob);
+    let downloadUrl = file.blob ? URL.createObjectURL(file.blob) : file.url;
+    if (!downloadUrl) return;
     const a = document.createElement('a');
-    a.href = url;
+    a.href = downloadUrl;
     a.download = file.name;
+    if (!file.blob) {
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+    }
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    if (file.blob) {
+      URL.revokeObjectURL(downloadUrl);
+    }
   };
 
   const formatDate = (isoString) => {

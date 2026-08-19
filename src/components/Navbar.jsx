@@ -8,11 +8,16 @@ export default function Navbar({
   onTriggerUpload, 
   totalBytesUsed,
   quotaBytes,
-  fileCount
+  fileCount,
+  currentView,
+  setCurrentView
 }) {
   return (
     <nav className="navbar">
-      <a href="#" className="brand">
+      <a href="#" className="brand" onClick={(e) => {
+        e.preventDefault();
+        if (currentView !== 'files') setCurrentView('files');
+      }}>
         <div className="brand-icon">
           <CloudUpload size={24} />
         </div>

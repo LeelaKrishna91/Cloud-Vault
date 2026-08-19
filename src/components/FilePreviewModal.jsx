@@ -10,18 +10,23 @@ export default function FilePreviewModal({ file, onClose }) {
   const [isUnlocked, setIsUnlocked] = useState(!file.password);
 
   useEffect(() => {
-    if (!file || !file.blob) return;
-    const url = URL.createObjectURL(file.blob);
+    if (!file) return;
+    let url = file.blob ? URL.createObjectURL(file.blob) : file.url;
     setContentUrl(url);
 
-    if (file.category === 'code' || file.category === 'documents' || file.type.includes('text')) {
+    if (file.blob && (file.category === 'code' || file.category === 'documents' || file.type.includes('text'))) {
       const reader = new FileReader();
       reader.onload = (e) => setTextContent(e.target.result);
       reader.readAsText(file.blob);
+    } else if (file.url && (file.category === 'code' || file.category === 'documents' || file.type?.includes('text'))) {
+      fetch(file.url)
+        .then(res => res.text())
+        .then(text => setTextContent(text))
+        .catch(err => console.error('Failed to fetch text content:', err));
     }
 
     return () => {
-      URL.revokeObjectURL(url);
+      if (file.blob && url) URL.revokeObjectURL(url);
     };
   }, [file]);
 
@@ -44,10 +49,15 @@ export default function FilePreviewModal({ file, onClose }) {
   };
 
   const handleDownload = () => {
-    if (!contentUrl) return;
+    const downloadUrl = contentUrl || file.url;
+    if (!downloadUrl) return;
     const a = document.createElement('a');
-    a.href = contentUrl;
+    a.href = downloadUrl;
     a.download = file.name;
+    if (!file.blob) {
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+    }
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
